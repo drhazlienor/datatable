@@ -1,0 +1,516 @@
+---
+title: "Data and Model Visualization in Tables using R"
+author: "Dr Hazlienor Mohd Hatta"
+date: 6 August 2024
+format:
+  html:
+    toc: true
+    toc_float: true
+    theme: lux
+self-contained: true
+editor: visual
+---
+
+# Introduction
+
+Welcome to this guide on visualizing data and models in tables using R. In this document, we'll explore various methods and techniques for presenting data and statistical results in a table format.
+
+By the end of this guide, you'll be equipped with the knowledge to create professional-quality tables that highlight key insights and facilitate better understanding of your data and models.
+
+## Prepare environment
+
+Before diving into data analysis, it's essential to set up your environment for a smooth and efficient workflow. This preparation involves several key steps:
+
+1.  **Install Required Packages**: Ensure all necessary R packages are installed.
+
+    ```{r}
+    # install.packages("gtsummary")
+    # install.packages("sjPlot")
+    # install.packages("kableExtra")
+    # install.packages("DT")
+    # install.packages("gt")
+    # install.packages("mlbench") # for dataset
+    # install.packages(dplyr) # for data wrangling
+    ```
+
+2.  **Load Libraries**: Load the required libraries into your R session.
+
+    ```{r}
+    library(gtsummary)
+    library(sjPlot)
+    library(gt)
+    library(DT)
+    library(kableExtra)
+    library(mlbench)
+    ```
+
+3.  **Set Working Directory**: Define your working directory to manage file paths efficiently. Use `setwd()` to specify the folder where your data and outputs will be saved.
+
+    ```{r}
+    setwd("C:/Users/MY PC/OneDrive/R course/datatable")
+    ```
+
+4.  **Check for Updates**: Ensure that your R environment and packages are up-to-date to avoid compatibility issues and benefit from the latest features and improvements.
+
+## Data Acquisition
+
+Import data into R from various sources (e.g., CSV files, databases).
+
+```{r}
+data("PimaIndiansDiabetes")
+```
+
+```{r}
+diabetes <- PimaIndiansDiabetes
+```
+
+## Data Wrangling
+
+-   Inspect the data structure and summary statistics with functions like `str()`, `summary()`, and `head()`.
+
+-   Handle missing values, outliers, and inconsistencies using functions like `na.omit()`, `filter()`, and `mutate()`.
+
+```{r}
+str(diabetes)
+```
+
+Categorize numerical variable
+
+```{r}
+diabetes$parity <- cut(
+  diabetes$pregnant,
+  breaks = c(-Inf, 0, 4, Inf), # Define breaks for the categories
+  labels = c("nulliparous", "multiparous", "grand multiparous"), # Define category labels
+)
+```
+
+```{r}
+summary(diabetes)
+```
+
+## Exploratory Data Analysis (EDA)
+
+-   Conduct initial exploration to understand data distributions and relationships.
+
+-   Use visualizations and summary statistics.
+
+# gtsummary package
+
+### Descriptive summary
+
+```{r}
+tbl_summary(diabetes)
+```
+
+Note the sensible defaults with this basic usage; each of the defaults may be customized.
+
+-   **Variable types** are automatically detected so that appropriate descriptive statistics are calculated.
+
+-   **Label attributes** from the data set are automatically printed.
+
+-   **Missing values** are listed as “Unknown” in the table.
+
+-   Variable levels are **indented** and **footnotes** are added.
+
+**Select variable to be displayed**
+
+```{r}
+tbl_summary(diabetes %>%
+  select(diabetes, age))
+```
+
+**Remove variable to be displayed**
+
+```{r}
+tbl_summary(diabetes %>%
+  select(-pregnant))
+```
+
+#### Stratified summaries
+
+Stratified summaries show how the characteristics or statistics of variables differ across levels of another variable.
+
+```{r}
+tbl_summary(
+  diabetes,
+  by = diabetes # Stratify by diabetes status
+)
+```
+
+#### Specify summary statistic
+
+```{r}
+diabetes %>% tbl_summary(
+  by = "diabetes",
+  # Specify summary statistics
+  statistic = list(
+    all_categorical() ~ "{n} ({p}%)",
+    all_continuous() ~ "{mean} ({sd})"
+  ))
+```
+
+#### Modify decimal points
+
+```{r}
+diabetes %>% 
+  tbl_summary(
+    by = diabetes,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ " {n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 1
+  )
+```
+
+#### Modify label
+
+```{r}
+diabetes %>% 
+  tbl_summary(
+    by = diabetes,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    label = list(glucose ~ "random blood glucose", pressure ~ "diastolic blood pressure") # adjust label name
+  )
+```
+
+#### Modify header
+
+```{r}
+diabetes %>% 
+  tbl_summary(
+    by = diabetes,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    label = list(glucose ~ "random blood glucose", pressure ~ "diastolic blood pressure") 
+  ) %>% 
+  add_overall() %>% # add overall n
+   modify_header(label ~ "**Variable**") %>% 
+   modify_spanning_header(c("stat_1", "stat_2") ~ "**Diabetic Status**") %>% 
+  modify_header(stat_1 ~ "**Non-diabetes**", stat_2 ~ "**Diabetes**") %>% 
+    bold_labels() # bold labels
+
+```
+
+#### Modify caption
+
+```{r}
+diabetes %>% 
+  tbl_summary(
+    by = diabetes,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    label = list(glucose ~ "random blood glucose", pressure ~ "diastolic blood pressure") 
+  ) %>% 
+  add_overall() %>% 
+   modify_header(label ~ "**Variable**") %>% 
+   modify_spanning_header(c("stat_1", "stat_2") ~ "**Diabetic Status**") %>% 
+  modify_header(stat_1 ~ "**Non-diabetes**", stat_2 ~ "**Diabetes**") %>% 
+    bold_labels()  %>% 
+ modify_footnote(
+    all_stat_cols() ~ "Mean (SD) or Frequency (%)"
+  ) %>% 
+  modify_caption("**Table 1. Patient Characteristics Based on Diabetic Status**")
+```
+
+#### Table strata
+
+If you need to analyze or present your data it in a stratified manner, `tbl_strata` can be a valuable tool
+
+```{r}
+diabetes %>% 
+  select(age, parity, glucose, triceps, diabetes) %>% 
+  tbl_strata(
+    strata = parity, # stratified by parity
+    .tbl_fun =
+      ~ .x %>% 
+        tbl_summary(by = diabetes, missing = "no") |> # by diabetic status
+        add_n(),
+    .header = "**{strata}**, n = {n}"
+  )
+```
+
+### Univariate Summary
+
+```{r}
+diabetes %>% 
+  tbl_summary(
+    by = diabetes,
+    statistic = list(
+      all_continuous() ~ "{mean} ({sd})",
+      all_categorical() ~ "{n} ({p}%)"
+    ),
+    digits = all_continuous() ~ 2,
+    label = list(glucose ~ "random blood glucose", pressure ~ "diastolic blood pressure") 
+  ) %>% 
+  add_overall() %>% 
+   modify_header(label ~ "**Variable**") %>% 
+   modify_spanning_header(c("stat_1", "stat_2") ~ "**Diabetic Status**") %>% 
+  modify_header(stat_1 ~ "**Non-diabetes**", stat_2 ~ "**Diabetes**") %>% 
+ add_p() # add p-value
+```
+
+#### Table cross
+
+Use [`tbl_cross()`](https://www.danieldsjoberg.com/gtsummary/reference/tbl_cross.html) to compare two categorical variables in your data.
+
+```{r}
+diabetes %>% 
+  tbl_cross(
+    row = parity,
+    col = diabetes,
+    percent = "cell"
+  ) %>% 
+  add_p()
+```
+
+### Regression model
+
+#### Univariable regression model
+
+Lets build a univariate logistic regression model with diabetes as outcome and parity as independent variable.
+
+```{r}
+m1 <- glm(diabetes ~ parity, diabetes, family = binomial(link = "logit"))
+summary(m1)
+```
+
+Visualize the model (log odds) using `tbl_regression()`
+
+```{r}
+tbl_regression(m1)
+```
+
+Visualize the model (odd ratios) using `tbl_regression()`
+
+```{r}
+tbl_regression(m1, exponentiate = TRUE)
+```
+
+alternatively, you can use `tbl_uvregression()` to conduct multiple univariate regression model simultaneously
+
+```{r}
+tbl_uvregression(
+  diabetes, # dataset name
+  method = glm, # regression method
+  y = diabetes, # outcome variable
+  method.args = list(family = binomial),
+  exponentiate = TRUE, # if want log odds can remove/FALSE
+  include = c("age", "parity", "triceps"), # list of independent variable
+  pvalue_fun = label_style_pvalue(digits = 2) # decimal point
+)
+```
+
+#### Multivariable regression model
+
+Lets build a univariate logistic regression model with diabetes as outcome and age, parity, and triceps as independent variable.
+
+```{r}
+m2 <- glm(diabetes ~ age + parity + triceps, family = binomial(link = "logit"), data = diabetes)
+summary(m2)
+```
+
+Visualize the model using `tbl_regression()`
+
+```{r}
+tbl_regression(m2, 
+        pvalue_fun = label_style_pvalue(digits = 3), 
+        exponentiate = TRUE)
+```
+
+#### Inline text
+
+```{r}
+table2 <- tbl_regression(m2, 
+        pvalue_fun = label_style_pvalue(digits = 3), 
+        exponentiate = TRUE)
+inline_text(table2, variable = parity, level = "multiparous")
+```
+
+#### Merge table
+
+Merge simple and multiple model side by side using `tbl_merge()`
+
+```{r}
+slogr <- tbl_uvregression(
+  diabetes, # dataset name
+  method = glm, # regression method
+  y = diabetes, # outcome variable
+  method.args = list(family = binomial),
+  exponentiate = TRUE, # if want log odds can remove/FALSE
+  include = c("age", "parity", "triceps"), # list of independent variable
+  pvalue_fun = label_style_pvalue(digits = 3) # decimal point
+)
+
+mlogr <- tbl_regression(m2, 
+        pvalue_fun = label_style_pvalue(digits = 3), 
+        exponentiate = TRUE)
+
+tbl_merge(
+  tbls = list(slogr, mlogr),
+  tab_spanner = c("**Simple Logistic Regression**", "**Multiple Logistic Regression**")
+)
+
+```
+
+#### Stack table
+
+stack your table using `tbl_stack()`
+
+```{r}
+tbl_stack(list(slogr, mlogr), 
+          group_header = c("Simple Logistic Regression", "Multiple Logistic Regression"))
+```
+
+### **Journal theme**
+
+The `gtsummary` package in R offers a customizable `journal` theme, designed to produce well-formatted tables that adhere to common journal and publication standards. The defaults were written to align with the reporting guidelines for *European Urology*, *The Journal of Urology*, *Urology*, and the *British Journal of Urology International*.
+
+```{r}
+# set theme
+theme_gtsummary_journal(
+  journal = "lancet", # journal theme (e.g.: lancet, jama, nejm)
+  set_theme = TRUE
+)
+
+# set compact style
+theme_gtsummary_compact(set_theme = TRUE, font_size = NULL)
+
+# create table
+tbl_regression(m2, 
+        pvalue_fun = label_style_pvalue(digits = 3), 
+        exponentiate = TRUE)
+
+```
+
+Use [`reset_gtsummary_theme()`](https://www.danieldsjoberg.com/gtsummary/reference/set_gtsummary_theme.html) to restore the default settings
+
+### Export table
+
+`gtsave()` makes it easy to save a **gt** table to a file. We can save the **gtsummary** table to gt table using `as_gt()`
+
+Ensure that an extension compatible with the output types is provided (`.html`, `.tex`, `.ltx`, `.rtf`, `.docx`)
+
+`.png` and `.pdf` require **webshot2** package
+
+```{r}
+tab_1 <- diabetes %>% 
+  tbl_cross(
+    row = parity,
+    col = diabetes,
+    percent = "cell"
+  ) %>% 
+  add_p() %>% 
+  as_gt()
+
+# tab_1 %>%  gtsave(filename = "tab_1.docx") remove # to run
+```
+
+# Other package
+
+### sjPlot
+
+Results of various statistical analyses (that are commonly used in social sciences) can be visualized using this package, including simple and cross tabulated frequencies, histograms, box plots, (generalized) linear models, mixed effects models, PCA and correlation matrices, cluster analyses, scatter plots, Likert scales, effects plots of interaction terms in regression models, constructing index or score variables and much more.
+
+**visualize odd ratios**
+
+```{r}
+tab_model(m2)
+```
+
+**visualize log odds**
+
+```{r}
+tab_model(m2, transform=NULL)
+```
+
+### stargazer
+
+This package is commonly used for generating well-formatted tables of statistical results, such as regression outputs, in LaTeX, HTML, or text format. It's particularly useful for creating tables for academic papers and reports.
+
+```{r}
+library(stargazer)
+stargazer(diabetes, 
+          type = "text", # either latex, html, or text
+          title="Descriptive statistics", 
+          digits=2, 
+          out="table1.txt") # output file
+```
+
+```{r}
+stargazer(m2, type="text",  out="table3.txt")
+```
+
+### texreg
+
+```{r}
+library(texreg)
+screenreg(m2)
+```
+
+### modelsummary
+
+```{r}
+library(modelsummary)
+msummary(m2)
+```
+
+## Practical
+
+Select a dataset and perform data tabulation of your choice. You may use any one of these dataset or your own data.
+
+This dataset has a binary response (outcome, dependent) variable called **`admit`**. There are three predictor variables: **`gre`**, **`gpa`** and **`rank`**.
+
+```{r}
+admit <- read.csv("https://stats.idre.ucla.edu/stat/data/binary.csv")
+```
+
+This dataset contain variable that might be related to whether a patient’s lung cancer goes into remission after treatment. The outcome variable is remission (0=no remission, 1=remission).
+
+```{r}
+lung <-read.csv("https://stats.idre.ucla.edu/stat/data/hdp.csv")
+```
+
+This dataset contain 15 variables with chd as the outcome variable (0=no chd, 1=chd)
+
+```{r}
+# install.packages("Epi")
+library(Epi)
+data(diet)
+```
+
+This dataset also from **Epi** package contain predictors of leprosy (outcome variable d, 0=no leprosy, 1=leprosy)
+
+```{r}
+data(lep)
+```
+
+This dataset also from **Epi** package contain predictors of breast cancer survival (outcome variable xst (Alive, Dead)
+
+```{r}
+data(BrCa)
+```
+
+# Further reading
+
+-   [gtsummary](https://www.danieldsjoberg.com/gtsummary/)
+
+-   [sjPlot](https://rdrr.io/cran/sjPlot/)
+
+-   [stargazer](https://rpubs.com/ErikPav/stargazer)
+
+-   [Reporting Statistical Results in Medical Journals](https://www.bioline.org.br/pdf?mj16056)
+
+**Thank you!**
+
+For any enquiry, email me at drhazlienor\@hotmail.com
